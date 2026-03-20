@@ -517,12 +517,12 @@ if not st.session_state.user:
             if st.button("⬅️ Back"): st.session_state.auth_view = 'landing'; st.rerun()
             st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
             t_log, t_sign = st.tabs(["Sign In", "Create Account"])
-         with t_log:
+        with t_log:
                 e1 = st.text_input("Email", key="l_e")
                 p1 = st.text_input("Password", type="password", key="l_p")
                 # FIXED: Passing e1 (email), p1 (password), and role
                 if st.button("Authenticate", use_container_width=True): auth_user(e1, p1, role) 
-         with t_sign:
+        with t_sign:
                 e2 = st.text_input("Work/School Email", key="s_e")
                 p2 = st.text_input("Create Password", type="password", key="s_p")
                 # FIXED: Calling signup_user and passing e2, p2, and role
