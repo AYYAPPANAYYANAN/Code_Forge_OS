@@ -33,6 +33,18 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
+# ==========================================
+# 2. STATE MANAGEMENT & HISTORY LOGGER
+# ==========================================
+if 'user' not in st.session_state: st.session_state.user = None
+if 'role' not in st.session_state: st.session_state.role = None
+if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
+if 'analyzed' not in st.session_state: st.session_state.analyzed = False
+if 'chat_history' not in st.session_state: st.session_state.chat_history = []
+if 'theme_color' not in st.session_state: st.session_state.theme_color = "#38bdf8" # Default Neon Blue
+if 'language' not in st.session_state: st.session_state.language = "English"
+if 'activity_log' not in st.session_state: st.session_state.activity_log = []
+
 # --- Global Translation Engine ---
 def t(key):
     lang = st.session_state.get('language', 'English')
