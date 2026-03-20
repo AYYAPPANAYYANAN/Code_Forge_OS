@@ -520,13 +520,13 @@ if not st.session_state.user:
             with t_log:
                 e1 = st.text_input("Email", key="l_e")
                 p1 = st.text_input("Password", type="password", key="l_p")
-                if st.button("Authenticate", use_container_width=True): auth_user(e1, role, "login")
+                # BUG 1: Passing 'role' as the password!
+                if st.button("Authenticate", use_container_width=True): auth_user(e1, role, "login") 
             with t_sign:
                 e2 = st.text_input("Work/School Email", key="s_e")
                 p2 = st.text_input("Create Password", type="password", key="s_p")
+                # BUG 2: Calling auth_user instead of signup_user, and passing 'role' as password!
                 if st.button("Initialize Account", use_container_width=True): auth_user(e2, role, "signup")
-            st.markdown("</div>", unsafe_allow_html=True)
-
 else:
     # --- NEW: TOP NAVIGATION WITH SETTINGS & HISTORY ---
     col_logo, col_space, col_settings, col_user = st.columns([3, 4, 1.5, 1.5])
