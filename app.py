@@ -86,9 +86,6 @@ def handle_auth(email, password, role, action="login"):
 # ==========================================
 # 2. THE LOGIN PAGE UI
 # ==========================================
-if not st.session_state.user:
-    st.markdown("<h1 class='neon-title' style='font-size: 3.5rem; text-align: center; margin-top: 5vh;'>CodeForge OS</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 5vh;'>Next-Gen Talent Readiness Ecosystem</p>", unsafe_allow_html=True)
 
     if st.session_state.auth_view == 'landing':
         c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
@@ -192,11 +189,6 @@ def t(text_key):
 
 # ==========================================
 # 2. ADVANCED UI & GEN-Z CSS ANIMATIONS
-# ==========================================
-st.set_page_config(page_title="CodeForge Onboarding AI", layout="wide", initial_sidebar_state="collapsed")
-
-# ==========================================
-# 3. ADVANCED UI & DYNAMIC THEMING
 # ==========================================
 st.set_page_config(page_title="CodeForge Onboarding AI", layout="wide", initial_sidebar_state="collapsed")
 
@@ -720,7 +712,7 @@ else:
     # --- RECRUITER DASHBOARD ---
     elif st.session_state.role == "Recruiter":
         st.markdown("<h3>Enterprise Talent Orchestration Dashboard</h3>", unsafe_allow_html=True)
-        r1, r2 = st.columns([2, 1])
+        r1, r2 = st.columns([2, 1]) 
         
         with r1:
             st.markdown("<div class='glass-card'><h4>📈 Active Cohort Analytics</h4>", unsafe_allow_html=True)
