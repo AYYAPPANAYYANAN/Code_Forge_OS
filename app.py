@@ -224,28 +224,99 @@ if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
 if 'analyzed' not in st.session_state: st.session_state.analyzed = False
 if 'chat_history' not in st.session_state: st.session_state.chat_history = []
 
+# ==========================================
+# 3. BULLETPROOF AUTHENTICATION LOGIC
+# ==========================================
 def auth_user(email, password, role):
     try:
-        # REAL Supabase Auth Call
+        # Step 1: Attempt to log in
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         if res.user:
             st.session_state.user = res.user.email
             st.session_state.role = role
-            log_activity(f"Logged in as {role}")
-            st.success(f"Welcome back, {email}!")
+            log_activity(f"Logged in successfully as {role}")
+            st.success("✅ Access Granted! Entering portal...")
             time.sleep(1)
-            st.rerun()
+            st.rerun() # Refresh page to load dashboard
+            
     except Exception as e:
-        # This will now show the SPECIFIC error (e.g., "Email not confirmed")
-        st.error(f"Auth Error: {str(e)}")
+        error_msg = str(e)
+        if "Invalid login credentials" in error_msg:
+            st.error("❌ Wrong email or password. Did you create an account first?")
+        else:
+            st.error(f"⚠️ Auth Error: {error_msg}")
+
 def signup_user(email, password, role):
     try:
-        # REAL Supabase Registration
+        # Step 2: Attempt to create an account
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
-            st.success("Verification email sent! Check your inbox.")
+            st.success("🎉 Account created successfully! Please click the 'Sign In' tab above to log in.")
+            
     except Exception as e:
-        st.error(f"Sign Up Error: {str(e)}")
+        error_msg = str(e)
+        if "User already registered" in error_msg:
+            st.warning("⚠️ This email is already registered! Switch to the 'Sign In' tab to log in.")
+        else:
+            st.error(f"⚠️ Sign Up Error: {error_msg}")
+
+# ==========================================
+# 4. THE CLEAN LOGIN UI
+# ==========================================
+if not st.session_state.user:
+    st.markdown("<h1 class='neon-title' style='font-size: 3.5rem; margin-top: 5vh;'>CodeForge OS</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 5vh;'>Intelligent Onboarding Ecosystem</p>", unsafe_allow_html=True)
+
+    if st.session_state.auth_view == 'landing':
+        c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
+        with c2:
+            st.markdown("<div class='glass-card'><h1>🎓</h1><h2>Candidate Portal</h2><p style='color:#cbd5e1;'>Adaptive roadmaps & co-pilot.</p></div>", unsafe_allow_html=True)
+            if st.button("Enter Candidate Gateway 🚀", use_container_width=True):
+                st.session_state.auth_view = 'Candidate'
+                st.rerun()
+        with c3:
+            st.markdown("<div class='glass-card'><h1>👔</h1><h2>Recruiter / ATS</h2><p style='color:#cbd5e1;'>Predictive churn & orchestration.</p></div>", unsafe_allow_html=True)
+            if st.button("Enter Enterprise ATS 🔒", use_container_width=True):
+                st.session_state.auth_view = 'Recruiter'
+                st.rerun()
+    else:
+        role = st.session_state.auth_view
+        color = "#38bdf8" if role == "Candidate" else "#a855f7"
+        
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.markdown(f"<div class='glass-card' style='border-top: 4px solid {color};'>", unsafe_allow_html=True)
+            
+            # Back Button
+            if st.button("⬅️ Back"): 
+                st.session_state.auth_view = 'landing'
+                st.rerun()
+                
+            st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
+            
+            # Login / Signup Tabs
+            t_log, t_sign = st.tabs(["🔑 Sign In", "✨ Create Account"])
+            
+            with t_log:
+                e1 = st.text_input("Email", key="login_email")
+                p1 = st.text_input("Password", type="password", key="login_pass")
+                if st.button("Authenticate", use_container_width=True, type="primary"): 
+                    if e1 and p1:
+                        auth_user(e1, p1, role)
+                    else:
+                        st.warning("Please fill in both email and password.")
+                        
+            with t_sign:
+                e2 = st.text_input("Work/School Email", key="signup_email")
+                p2 = st.text_input("Create Password", type="password", key="signup_pass")
+                if st.button("Initialize Account", use_container_width=True): 
+                    if e2 and p2:
+                        signup_user(e2, p2, role)
+                    else:
+                        st.warning("Please fill in both email and password.")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ==========================================
 # 4. CORE ENGINE & PARSERS
@@ -360,7 +431,7 @@ class ProfileAuthenticityScanner:
                 username = gh_match.group(1)
                 try:
                     # Make a real HTTP call to the public GitHub API
-                    response = requests.get(f"https://api.github.com/users/{username}", timeout=5)
+                    response = requests.get(f"https://api.github.com/users/{username}", timeout=10)
                     
                     if response.status_code == 200:
                         data = response.json()
@@ -387,7 +458,7 @@ class ProfileAuthenticityScanner:
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
                 }
                 try:
-                    res = requests.get(linkedin_url, headers=headers, timeout=5)
+                    res = requests.get(linkedin_url, headers=headers, timeout=10)
                     
                     # LinkedIn returns 200 (Success) or 999 (Anti-bot wall). Both mean the profile URL is valid.
                     # If it returns 404, the candidate lied or the link is broken.
@@ -488,46 +559,7 @@ class KnowledgeGraphEngine:
         
         return agents
 
-# ==========================================
-# 5. UI VIEWS & ROUTING
-# ==========================================
 
-if not st.session_state.user:
-    st.markdown("<h1 class='neon-title' style='font-size: 3.5rem; margin-top: 5vh;'>CodeForge OS</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 5vh;'>Intelligent Onboarding Ecosystem</p>", unsafe_allow_html=True)
-
-    if st.session_state.auth_view == 'landing':
-        c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
-        with c2:
-            st.markdown("<div class='portal-card candidate'><h1>🎓</h1><h2>Candidate Portal</h2><p style='color:#cbd5e1;'>Adaptive roadmaps & co-pilot.</p></div>", unsafe_allow_html=True)
-            if st.button("Enter Candidate Gateway 🚀", use_container_width=True):
-                st.session_state.auth_view = 'Candidate'
-                st.rerun()
-        with c3:
-            st.markdown("<div class='portal-card recruiter'><h1>👔</h1><h2>Recruiter / ATS</h2><p style='color:#cbd5e1;'>Predictive churn & orchestration.</p></div>", unsafe_allow_html=True)
-            if st.button("Enter Enterprise ATS 🔒", use_container_width=True):
-                st.session_state.auth_view = 'Recruiter'
-                st.rerun()
-    else:
-        role = st.session_state.auth_view
-        color = "#38bdf8" if role == "Candidate" else "#a855f7"
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            st.markdown(f"<div class='glass-card' style='border-top: 4px solid {color};'>", unsafe_allow_html=True)
-            if st.button("⬅️ Back"): st.session_state.auth_view = 'landing'; st.rerun()
-            st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
-            t_log, t_sign = st.tabs(["Sign In", "Create Account"])
-        with t_log:
-                e1 = st.text_input("Email", key="l_e")
-                p1 = st.text_input("Password", type="password", key="l_p")
-                # FIXED: Passing e1 (email), p1 (password), and role
-                if st.button("Authenticate", use_container_width=True): auth_user(e1, p1, role) 
-        with t_sign:
-                e2 = st.text_input("Work/School Email", key="s_e")
-                p2 = st.text_input("Create Password", type="password", key="s_p")
-                # FIXED: Calling signup_user and passing e2, p2, and role
-                if st.button("Initialize Account", use_container_width=True): signup_user(e2, p2, role)
-else:
     # --- NEW: TOP NAVIGATION WITH SETTINGS & HISTORY ---
     col_logo, col_space, col_settings, col_user = st.columns([3, 4, 1.5, 1.5])
     
