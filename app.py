@@ -46,12 +46,10 @@ if 'language' not in st.session_state: st.session_state.language = "English"
 if 'activity_log' not in st.session_state: st.session_state.activity_log = []
 
 def log_activity(action_desc):
-    """Logs user actions to history"""
-    if 'user' in st.session_state and st.session_state.user:
+    """Logs user actions to history (Ready for Supabase DB Insert)"""
+    if st.session_state.user:
         timestamp = time.strftime("%Y-%m-%d %H:%M")
         log_entry = f"[{timestamp}] {action_desc}"
-        if 'activity_log' not in st.session_state:
-            st.session_state.activity_log = []
         st.session_state.activity_log.insert(0, log_entry)
 
 # --- Global Translation Engine ---
