@@ -12,31 +12,103 @@ import re
 import os
 from dotenv import load_dotenv
 
-# Load variables from .env file
+# ==========================================
+# 1. INITIALIZATION & LOGIC
+# ==========================================
 load_dotenv()
-# Add this right after load_dotenv()
-if not os.getenv("SUPABASE_URL"):
-    st.error("🚨 The .env file is NOT being read. Check the file name and location!")
-    st.stop() # Stops the app here so we don't get deeper errors
 
-# ==========================================
-# 1. SUPABASE CONFIGURATION (Secure)
-# ==========================================
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# Securely pull from .env
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "").strip()
 
 @st.cache_resource
 def init_supabase() -> Client:
-    # Ensure keys exist before trying to connect
     if not SUPABASE_URL or not SUPABASE_KEY:
-        st.error("Missing Supabase credentials. Check your .env file!")
         return None
     try:
+        # Fixed: Added a check for empty strings
         return create_client(SUPABASE_URL, SUPABASE_KEY)
-    except Exception as e:
+    except:
         return None
 
 supabase = init_supabase()
+
+# --- Global Translation Engine ---
+def t(key):
+    lang = st.session_state.get('language', 'English')
+    translations = {
+        "English": {"candidate": "Candidate Portal", "recruiter": "Enterprise ATS", "back": "⬅️ Back", "login": "Sign In", "create": "Initialize Account"},
+        "German": {"candidate": "Kandidatenportal", "recruiter": "Unternehmen ATS", "back": "⬅️ Zurück", "login": "Anmelden", "create": "Konto Erstellen"},
+        "Tamil": {"candidate": "விண்ணப்பதாரர்", "recruiter": "நிறுவன போர்டல்", "back": "⬅️ பின்னால்", "login": "உள்நுழைய", "create": "கணக்கை உருவாக்கு"}
+    }
+    return translations.get(lang, translations["English"]).get(key, key)
+
+# --- Auth Functions ---
+def handle_auth(email, password, role, action="login"):
+    try:
+        if action == "login":
+            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+            if res.user:
+                st.session_state.user = res.user.email
+                st.session_state.role = role
+                log_activity(f"Logged in as {role}")
+                st.success("Access Granted!")
+                time.sleep(0.5)
+                st.rerun()
+        else:
+            res = supabase.auth.sign_up({"email": email, "password": password})
+            if res.user:
+                st.success("Verification email dispatched! Check your inbox.")
+    except Exception as e:
+        st.error(f"Auth Error: {str(e)}")
+
+# ==========================================
+# 2. THE LOGIN PAGE UI
+# ==========================================
+if not st.session_state.user:
+    st.markdown("<h1 class='neon-title' style='font-size: 3.5rem; text-align: center; margin-top: 5vh;'>CodeForge OS</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 5vh;'>Next-Gen Talent Readiness Ecosystem</p>", unsafe_allow_html=True)
+
+    if st.session_state.auth_view == 'landing':
+        c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
+        with c2:
+            st.markdown("<div class='portal-card'><h1>🎓</h1><h2>Candidate Gateway</h2><p>Adaptive roadmaps & co-pilot.</p></div>", unsafe_allow_html=True)
+            if st.button("Enter Portal 🚀", use_container_width=True):
+                st.session_state.auth_view = 'Candidate'
+                st.rerun()
+        with c3:
+            st.markdown("<div class='portal-card'><h1>👔</h1><h2>Recruiter Portal</h2><p>Predictive churn & orchestration.</p></div>", unsafe_allow_html=True)
+            if st.button("Enter Enterprise 🔒", use_container_width=True):
+                st.session_state.auth_view = 'Recruiter'
+                st.rerun()
+    else:
+        role = st.session_state.auth_view
+        color = "#38bdf8" if role == "Candidate" else "#a855f7"
+        
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            if st.button(t("back")): 
+                st.session_state.auth_view = 'landing'
+                st.rerun()
+            
+            st.markdown(f"<div class='glass-card' style='border-top: 4px solid {color};'>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
+            
+            tab_log, tab_sign = st.tabs([t("login"), t("create")])
+            
+            with tab_log:
+                e1 = st.text_input("Email", key="login_email")
+                p1 = st.text_input("Password", type="password", key="login_pass")
+                if st.button("Authenticate", use_container_width=True):
+                    handle_auth(e1, p1, role, "login")
+            
+            with tab_sign:
+                e2 = st.text_input("Work Email", key="sign_email")
+                p2 = st.text_input("Create Password", type="password", key="sign_pass")
+                if st.button("Initialize Account", use_container_width=True):
+                    handle_auth(e2, p2, role, "signup")
+            st.markdown("</div>", unsafe_allow_html=True)
+            
 
 # ==========================================
 # 2. STATE MANAGEMENT & HISTORY LOGGER
