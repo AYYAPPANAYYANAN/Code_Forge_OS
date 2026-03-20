@@ -14,6 +14,10 @@ from dotenv import load_dotenv
 
 # Load variables from .env file
 load_dotenv()
+# Add this right after load_dotenv()
+if not os.getenv("SUPABASE_URL"):
+    st.error("🚨 The .env file is NOT being read. Check the file name and location!")
+    st.stop() # Stops the app here so we don't get deeper errors
 
 # ==========================================
 # 1. SUPABASE CONFIGURATION (Secure)
