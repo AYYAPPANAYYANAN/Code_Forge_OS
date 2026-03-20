@@ -260,28 +260,19 @@ def signup_user(email, password, role):
 # ==========================================
 # 4. CORE ENGINE & PARSERS
 # ==========================================
+
 class CodeForgeAI:
     @staticmethod
     def audit_bias(resume_text):
         """Scans for PII and gendered markers to calculate an actual Ethics Score"""
         score = 100
         findings = []
-        
-        # 1. Check for Gendered Pronouns (Bias Risk)
         if re.search(r'\b(he|she|him|her|his|hers)\b', resume_text, re.I):
             score -= 15
-            findings.append("Gendered pronouns detected (Bias Risk)")
-            
-        # 2. Check for Age Indicators (Year of birth/Graduation > 10 years ago)
+            findings.append("Gendered pronouns detected")
         if re.search(r'\b(19[789][0-9]|200[0-5])\b', resume_text):
             score -= 10
             findings.append("Potential age-identifying dates found")
-            
-        # 3. Check for Contact Info (PII Masking)
-        if re.search(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', resume_text, re.I):
-            score -= 5
-            findings.append("Email PII detected (Masking recommended)")
-            
         return {    
             "score": max(score, 0),
             "status": "Ethical Audit: " + (", ".join(findings) if findings else "Perfectly Neutral")
@@ -290,18 +281,27 @@ class CodeForgeAI:
     @staticmethod
     def calculate_risk(skill_gap_count, portfolio_score):
         """Predicts churn risk based on the actual difficulty of the learning path"""
-        # More skills to learn = Higher Churn Risk
-        # Higher Portfolio Score = Lower Risk (More committed)
         base_risk = (skill_gap_count * 15) - (portfolio_score * 0.5)
         churn = max(5, min(95, base_risk))
         velocity = 100 - (skill_gap_count * 5)
-        
         return {
             "churn": f"{churn:.1f}%",
             "velocity": f"{velocity}%",
             "flag": "⚠️ High Risk" if churn > 60 else ("🟡 Moderate" if churn > 30 else "🟢 On Track")
         }
 
+    @staticmethod
+    def trigger_agents(target_skills):
+        """Orchestrates hardware and software setup based on tech stack requirements"""
+        agents = []
+        if any(x in str(target_skills) for x in ["Docker", "Machine Learning", "AI"]):
+            agents.append({"sys": "IT Provisioning", "action": "MacBook Pro M3 Max Assigned", "status": "Ready 🟢"})
+        else:
+            agents.append({"sys": "IT Provisioning", "action": "Standard Issue Laptop Assigned", "status": "Ready 🟢"})
+            
+        agents.append({"sys": "Slack Agent", "action": "Invited to #tech-builders and #ai-general", "status": "Active 🟢"})
+        return agents
+        
 class IntelligentParser:
     @staticmethod
     def extract_text(uploaded_file):
