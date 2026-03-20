@@ -149,12 +149,12 @@ def auth_user(email, password, role):
             st.session_state.user = res.user.email
             st.session_state.role = role
             log_activity(f"Logged in as {role}")
-            st.success("Login Successful!")
+            st.success(f"Welcome back, {email}!")
             time.sleep(1)
             st.rerun()
     except Exception as e:
+        # This will now show the SPECIFIC error (e.g., "Email not confirmed")
         st.error(f"Auth Error: {str(e)}")
-
 def signup_user(email, password, role):
     try:
         # REAL Supabase Registration
