@@ -369,34 +369,40 @@ class KnowledgeGraphEngine:
     
 class SelfLearningPathfinder:
     def __init__(self):
-        self.catalog = {
-            "Python": [
-                {"id": "py_c1", "type": "course", "title": "Python for Everybody (Coursera)", "url": "https://coursera.org", "weight": 1.0, "cert": "PCEP"},
-                {"id": "py_c2", "type": "course", "title": "100 Days of Code: Python", "url": "https://udemy.com", "weight": 1.2, "cert": "Udemy Cert"},
-                {"id": "py_b1", "type": "book", "title": "Automate the Boring Stuff", "url": "#", "weight": 1.5, "cert": "None"}
-            ],
-            "Machine Learning": [
-                {"id": "ml_c1", "type": "course", "title": "ML Specialization (Stanford)", "url": "https://coursera.org", "weight": 1.8, "cert": "DeepLearning.AI"},
-                {"id": "ml_c2", "type": "course", "title": "Practical Deep Learning", "url": "https://fast.ai", "weight": 1.1, "cert": "Fast.ai Cert"},
-                {"id": "ml_b1", "type": "book", "title": "Hands-On ML with Scikit-Learn", "url": "#", "weight": 1.9, "cert": "None"}
-            ],
-            "Docker": [
-                {"id": "dk_c1", "type": "course", "title": "Docker Mastery", "url": "https://udemy.com", "weight": 1.0, "cert": "Docker Associate"},
-                {"id": "dk_b1", "type": "book", "title": "Docker Deep Dive", "url": "#", "weight": 1.4, "cert": "None"}
-            ]
-        }
+        self.table_name = "resource_training" # Create this table in Supabase
         self.load_memory()
 
     def load_memory(self):
-        if 'ai_memory' not in st.session_state:
-            st.session_state.ai_memory = self.catalog
-        self.catalog = st.session_state.ai_memory
+        """Fetches trained weights from Supabase instead of just local memory"""
+        try:
+            # Try to get data from Supabase
+            res = supabase.table(self.table_name).select("*").execute()
+            if res.data:
+                # Reconstruct the catalog from DB rows
+                db_catalog = {}
+                for row in res.data:
+                    skill = row['skill']
+                    if skill not in db_catalog: db_catalog[skill] = []
+                    db_catalog[skill].append(row)
+                self.catalog = db_catalog
+            else:
+                self.catalog = {} # Fallback to empty if DB is fresh
+        except:
+            self.catalog = {} # Fail-safe if DB connection fails
 
-    def train_model(self, resource_id, skill, reward=0.2):
+    def train_model(self, resource_id, skill, reward=0.25):
+        """The 'Global Training' mechanism. Updates Supabase permanently."""
+        # 1. Update local catalog for immediate UI feedback
         for item in self.catalog.get(skill, []):
             if item['id'] == resource_id:
-                item['weight'] += reward
-        st.session_state.ai_memory = self.catalog
+                new_weight = item['weight'] + reward
+                
+                # 2. Push update to Supabase
+                try:
+                    supabase.table(self.table_name).update({"weight": new_weight}).eq("id", resource_id).execute()
+                    st.toast(f"✅ AI Brain Updated Globally for {skill}!")
+                except Exception as e:
+                    st.error(f"DB Update Error: {e}")
 
     def discover_new_skill(self, skill):
         """
