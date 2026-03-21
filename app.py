@@ -12,6 +12,26 @@ import re
 import os
 import uuid
 from dotenv import load_dotenv
+import os
+
+def check_env():
+    # Detect if the app is inside a Docker container
+    if os.path.exists('/.dockerenv'):
+        return "🐳 Running in Docker Container", "#0db7ed"
+    # Detect if it's on Streamlit Cloud
+    elif os.environ.get("STREAMLIT_RUNTIME_ENV_REMOTE") == "true":
+        return "☁️ Running on Streamlit Cloud (Docker Ignored)", "#ff4b4b"
+    else:
+        return "💻 Running Locally (No Docker)", "#38bdf8"
+
+env_text, env_color = check_env()
+
+# Display a small badge at the very top of your sidebar or main page
+st.sidebar.markdown(f"""
+    <div style='padding: 10px; border-radius: 5px; background: {env_color}22; border: 1px solid {env_color}; color: {env_color}; font-size: 12px; text-align: center; font-weight: bold;'>
+        {env_text}
+    </div>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # 1. STREAMLIT CONFIG (MUST BE FIRST)
