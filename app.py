@@ -15,14 +15,20 @@ from dotenv import load_dotenv
 import os
 
 def check_env():
-    # Detect if the app is inside a Docker container
-    if os.path.exists('/.dockerenv'):
+    # 1. Check for Render-specific Docker environment
+    if os.environ.get("RENDER") == "true":
+        return "🐳 Running in Docker (Render Cloud)", "#38bdf8"
+    
+    # 2. Check for the legacy hidden file
+    elif os.path.exists('/.dockerenv'):
         return "🐳 Running in Docker Container", "#0db7ed"
-    # Detect if it's on Streamlit Cloud
+    
+    # 3. Check for Streamlit Cloud
     elif os.environ.get("STREAMLIT_RUNTIME_ENV_REMOTE") == "true":
-        return "☁️ Running on Streamlit Cloud (Docker Ignored)", "#ff4b4b"
+        return "☁️ Running on Streamlit Cloud", "#ff4b4b"
+    
     else:
-        return "💻 Running Locally (No Docker)", "#38bdf8"
+        return "💻 Running Locally (Development)", "#94a3b8"
 
 env_text, env_color = check_env()
 
