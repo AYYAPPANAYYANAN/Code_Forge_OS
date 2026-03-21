@@ -10,9 +10,10 @@ import PyPDF2
 import io
 import re
 import os
+from groq import Groq   
 import uuid
 from dotenv import load_dotenv
-import os
+
 
 def check_env():
     # 1. Check for Render-specific Docker environment
@@ -94,7 +95,7 @@ def t(text_key):
             "upload_resume": "Upload Resume to begin adaptive pathing",
             "target_skills": "Target Skills (e.g., Python, Docker):",
             "init_engine": "Initialize Engine ⚡",
-            "ext_verif": "🔗 External Verification (Optional)",
+            "ext_verif": "🔗 External Verification",
             "back": "⬅️ Back",
             "login": "🔑 Sign In",
             "create": "✨ Create Account"
@@ -104,7 +105,7 @@ def t(text_key):
             "upload_resume": "Lebenslauf hochladen, um zu beginnen",
             "target_skills": "Zielkompetenzen (z.B. Python, Docker):",
             "init_engine": "Engine Initialisieren ⚡",
-            "ext_verif": "🔗 Externe Überprüfung (Optional)",
+            "ext_verif": "🔗 Externe Überprüfung ",
             "back": "⬅️ Zurück",
             "login": "🔑 Anmelden",
             "create": "✨ Konto Erstellen"
@@ -114,7 +115,7 @@ def t(text_key):
             "upload_resume": "பாதை உருவாக்க பயோடேட்டாவை பதிவேற்றவும்",
             "target_skills": "இலக்கு திறன்கள் (உதாரணம்: Python):",
             "init_engine": "இயந்திரத்தை துவக்கு ⚡",
-            "ext_verif": "🔗 வெளிப்புற சரிபார்ப்பு (விரும்பினால்)",
+            "ext_verif": "🔗 வெளிப்புற சரிபார்ப்பு",
             "back": "⬅️ பின்செல்",
             "login": "🔑 உள்நுழை",
             "create": "✨ கணக்கு உருவாக்கு"
@@ -124,7 +125,7 @@ def t(text_key):
             "upload_resume": "रेज़्यूमे अपलोड करें",
             "target_skills": "लक्षित कौशल:",
             "init_engine": "इंजन प्रारंभ करें ⚡",
-            "ext_verif": "🔗 बाहरी सत्यापन (वैकल्पिक)",
+            "ext_verif": "🔗 बाहरी सत्यापन ",
             "back": "⬅️ वापस",
             "login": "🔑 साइन इन करें",
             "create": "✨ खाता बनाएं"
@@ -132,27 +133,142 @@ def t(text_key):
     }
     return translations.get(lang, translations["English"]).get(text_key, text_key)
 
-# ==========================================
+# # ==========================================
 # 4. ADVANCED UI & DYNAMIC THEMING
 # ==========================================
 dynamic_css = f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap');
+    
     :root {{
         --theme-color: {st.session_state.theme_color};
+        --theme-glow: {st.session_state.theme_color}40; /* 40 adds 25% opacity in hex */
+        --bg-dark: #020617;
+        --bg-panel: #0f172a;
     }}
-    .stApp {{ background: radial-gradient(circle at 15% 50%, #020617, #0f172a); color: #f8fafc; font-family: 'Space Grotesk', sans-serif; }}
     
-    /* Force Streamlit Native Elements to use your color */
-    div.stButton > button:first-child {{ border-color: var(--theme-color) !important; color: var(--theme-color) !important; transition: all 0.3s ease; }}
-    div.stButton > button:first-child:hover {{ background-color: var(--theme-color) !important; color: #000 !important; box-shadow: 0 0 15px var(--theme-color); }}
-    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{ border-bottom-color: var(--theme-color) !important; color: var(--theme-color) !important; }}
+    /* 1. Base Background with Subtle Cyber Grid */
+    .stApp {{ 
+        background-color: var(--bg-dark); 
+        background-image: 
+            radial-gradient(circle at 15% 50%, var(--bg-panel), transparent 50%),
+            radial-gradient(circle at 85% 30%, var(--theme-glow), transparent 50%),
+            linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+        color: #f8fafc; 
+        font-family: 'Space Grotesk', sans-serif; 
+    }}
+
+    /* 2. Custom Dark Scrollbar */
+    ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+    ::-webkit-scrollbar-track {{ background: var(--bg-dark); }}
+    ::-webkit-scrollbar-thumb {{ background: #334155; border-radius: 4px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: var(--theme-color); }}
+
+    /* 3. Sleek Button Animations */
+    div.stButton > button:first-child {{ 
+        background: rgba(255, 255, 255, 0.02) !important; 
+        border: 1px solid var(--theme-glow) !important; 
+        color: #f8fafc !important; 
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.5px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; 
+    }}
+    div.stButton > button:first-child:hover {{ 
+        background: var(--theme-color) !important; 
+        color: #000 !important; 
+        border-color: var(--theme-color) !important; 
+        box-shadow: 0 0 20px var(--theme-glow), 0 0 10px var(--theme-color); 
+        transform: translateY(-2px);
+    }}
+    div.stButton > button:first-child:active {{
+        transform: translateY(0);
+    }}
+
+    /* 4. Modern Pill-Style Tabs */
+    .stTabs [data-baseweb="tab-list"] {{
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 12px;
+        padding: 5px;
+        gap: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        padding: 8px 16px;
+        border-radius: 8px;
+        color: #94a3b8;
+    }}
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{ 
+        background: var(--theme-glow) !important;
+        border-bottom: none !important; 
+        color: var(--theme-color) !important; 
+        font-weight: 600;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }}
+
+    /* 5. Glowing Input Fields */
+    .stTextInput input, .stTextArea textarea {{
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+        color: #f8fafc !important;
+        border-radius: 8px !important;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
+    }}
+    .stTextInput input:focus, .stTextArea textarea:focus {{
+        border-color: var(--theme-color) !important;
+        box-shadow: 0 0 0 2px var(--theme-glow) !important;
+    }}
+
+    /* 6. Animated Glass Cards */
+    @keyframes fadeInSlideUp {{
+        from {{ opacity: 0; transform: translateY(15px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    .glass-card {{ 
+        background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); 
+        backdrop-filter: blur(20px); 
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.06); 
+        border-top: 1px solid rgba(255, 255, 255, 0.12); /* Subtle lighting from above */
+        border-radius: 16px; 
+        padding: 24px; 
+        margin-bottom: 24px; 
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        animation: fadeInSlideUp 0.6s ease-out forwards;
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+    }}
+    .glass-card:hover {{ 
+        border-color: var(--theme-color); 
+        box-shadow: 0 15px 35px -5px rgba(0,0,0,0.6), 0 0 20px var(--theme-glow); 
+        transform: translateY(-4px);
+    }}
+
+    /* 7. Typography Polish */
+    .neon-title {{ 
+        background: linear-gradient(to right, #f8fafc, var(--theme-color), #c084fc); 
+        -webkit-background-clip: text; 
+        -webkit-text-fill-color: transparent; 
+        font-weight: 800; 
+        letter-spacing: -0.03em;
+        text-align: center; 
+        filter: drop-shadow(0 0 1.5em var(--theme-glow));
+    }}
     
-    .glass-card {{ background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; margin-bottom: 20px; transition: border-color 0.3s ease; }}
-    .glass-card:hover {{ border-color: var(--theme-color); box-shadow: 0 4px 30px rgba(0,0,0,0.5); }}
-    
-    .neon-title {{ background: linear-gradient(to right, var(--theme-color), #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; text-align: center; }}
-    .status-badge {{ padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; margin-bottom: 8px; }}
+    .status-badge {{ 
+        padding: 6px 14px; 
+        border-radius: 20px; 
+        font-size: 11px; 
+        font-weight: 700; 
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-block; 
+        margin-bottom: 8px; 
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+    }}
 </style>
 """
 st.markdown(dynamic_css, unsafe_allow_html=True)
@@ -703,40 +819,45 @@ else:
                     skill_gap = list(set(j_skills) - set(r_skills))
 
                     if skill_gap:
-                        st.markdown("<h4>🧠 Self-Evolving AI Pathway (Continuously Learning)</h4>", unsafe_allow_html=True)
+                        st.markdown("<h4 style='margin-top: 30px; border-bottom: 1px solid #334155; padding-bottom: 10px;'>🧠 Self-Evolving AI Pathway</h4>", unsafe_allow_html=True)
                         best_paths = auto_trainer.get_best_recommendations(skill_gap)
                         
                         for path in best_paths:
                             skill = path['skill']
-                            course = path['course']
-                            book = path['book']
+                            course_title = path['course'].get('title', 'Recommended Course')
+                            course_cert = path['course'].get('cert', 'Industry Standard')
+                            course_url = path['course'].get('url', '#')
+                            book_url = path['book']['url'] if path.get('book') else '#'
                             confidence = path['confidence']
                             
-                            st.markdown(f"""
-                            <div class='glass-card' style='padding:15px; border-left: 4px solid #a855f7; margin-bottom: 15px;'>
-                                <div style='display: flex; justify-content: space-between; align-items: center;'>
-                                    <div>
-                                        <span class='status-badge' style='background: #ef4444; color: white;'>Critical Gap</span>
-                                        <h4 style='margin:10px 0 5px 0; color:#e2e8f0;'>{course['title']} <span style='color:#a855f7;'>({skill})</span></h4>
-                                        <p style='margin:0; font-size:13px; color:#94a3b8;'>🏆 AI-Targeted Cert: {course['cert']}</p>
-                                    </div>
-                                    <div style='text-align: right; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px;'>
-                                        <span style='font-size: 22px; font-weight: bold; color: #10b981;'>{confidence}% Match</span><br>
-                                        <span style='font-size: 11px; color: #cbd5e1;'>Based on historical success</span>
-                                    </div>
-                                </div>
+                            # Flattened HTML to bypass Streamlit's Markdown code-block rendering
+                            html_card = f"""<div style="padding: 20px; border-left: 5px solid #a855f7; margin-bottom: 20px; background: linear-gradient(145deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.4) 100%); border-radius: 12px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: wrap;">
+<div style="flex: 2; min-width: 250px;">
+<span style="background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 8px; display: inline-block;">🔥 Critical Gap</span>
+<h3 style="margin: 5px 0; color: #f8fafc; font-size: 1.3rem;">{course_title}</h3>
+<p style="margin: 0; color: #a855f7; font-weight: 600; font-size: 0.95rem;">Target Skill: {skill}</p>
+<p style="margin: 8px 0 0 0; font-size: 0.85rem; color: #94a3b8;">🏆 Recommended Cert: {course_cert}</p>
+</div>
+<div style="flex: 1; text-align: right; min-width: 120px;">
+<div style="display: inline-block; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px 18px; border-radius: 12px;">
+<div style="font-size: 24px; font-weight: 800; color: #10b981; line-height: 1;">{confidence}%</div>
+<div style="font-size: 11px; color: #cbd5e1; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">AI Match</div>
+</div>
+</div>
+</div>
+<div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+<a href="{course_url}" target="_blank" style="background: #38bdf8; color: #020617; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">▶ Enroll in Course</a>
+<a href="{book_url}" target="_blank" style="background: transparent; color: #cbd5e1; border: 1px solid #475569; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: all 0.2s;">📚 Read Docs</a>
+</div>
+</div>"""
+
+                            st.markdown(html_card, unsafe_allow_html=True)
                                 
-                                <div style='margin-top: 15px; font-size: 14px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;'>
-                                    🔗 <a href='{course['url']}' target='_blank' style='color: #6ee7b7; text-decoration: none;'>Enroll in Best-Matched Course</a> <br>
-                                    📚 <a href='{book['url'] if book else '#'}' target='_blank' style='color: #38bdf8; text-decoration: none;'>Read Suggested Book: {book['title'] if book else 'N/A'}</a>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                                
-                            if st.button(f"Mark '{course['title']}' as Helpful 👍", key=f"train_{course['id']}"):
-                                auto_trainer.train_model(course['id'], skill, reward=0.25)
-                                st.success(f"🤖 AI Model Trained! Weight for '{course['title']}' increased.")
-                    
+                            if st.button(f"Mark '{course_title}' as Helpful 👍", key=f"train_{path['course'].get('id', skill)}"):
+                                auto_trainer.train_model(path['course'].get('id'), skill, reward=0.25)
+                                st.success(f"🤖 AI Model Trained! Weight for '{course_title}' increased globally.")
+                      
                     # --- SOCIAL PORTFOLIO SCORING ---
                     social_data = IntelligentParser.extract_social_signals(raw_text, manual_github, manual_linkedin)
                     st.markdown("<div class='glass-card' style='border-color:#10b981;'><h4>🌐 Portfolio & Profile Check</h4>", unsafe_allow_html=True)
@@ -793,13 +914,70 @@ else:
                 st.markdown("</div>", unsafe_allow_html=True)
                 
         with t3:
-            st.markdown("<h3>💬 Workflow Co-Pilot</h3>", unsafe_allow_html=True)
-            chat_input = st.chat_input("E.g., How do I deploy this Docker container?")
-            if chat_input:
-                st.session_state.chat_history.append({"role": "user", "content": chat_input})
-                st.session_state.chat_history.append({"role": "assistant", "content": "Referencing your 'Containerization 101' pathway: Let me pull up the exact command..."})
-            for msg in st.session_state.chat_history: st.chat_message(msg["role"]).write(msg["content"])
+            st.markdown("<h3 style='margin-bottom: 5px;'>💬 Agentic Workflow Co-Pilot</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;'>Powered by Groq & Llama 3.3. Your context-aware onboarding assistant.</p>", unsafe_allow_html=True)
 
+            # 1. Initialize Chat Memory in Streamlit Session State
+            if "copilot_history" not in st.session_state:
+                st.session_state.copilot_history = [
+                    {"role": "assistant", "content": "Greetings! I am your CodeForge Co-Pilot. I'm running on ultra-fast Groq compute. How can I accelerate your deployment today?"}
+                ]
+
+            # 2. Render Existing Conversation
+            for msg in st.session_state.copilot_history:
+                avatar_icon = "⚡" if msg["role"] == "assistant" else "🧑‍💻"
+                with st.chat_message(msg["role"], avatar=avatar_icon):
+                    st.markdown(msg["content"])
+
+            # 3. Capture User Input
+            user_query = st.chat_input("E.g., How do I deploy this Docker container?")
+
+            if user_query:
+                # Immediately display the user's message
+                st.session_state.copilot_history.append({"role": "user", "content": user_query})
+                with st.chat_message("user", avatar="🧑‍💻"):
+                    st.markdown(user_query)
+
+                # 4. Generate AI Response via Groq
+                with st.chat_message("assistant", avatar="⚡"):
+                    with st.spinner("Processing via Groq LPU..."):
+                        try:
+                            # 1. Pull the GROQ key from the new secrets file
+                            api_key = st.secrets["GROQ_API_KEY"]
+                            client = Groq(api_key=api_key)
+                            
+                            # Context Injection
+                            system_message = {
+                                "role": "system",
+                                "content": "You are the CodeForge OS Co-Pilot, an elite onboarding AI. Keep answers concise, practical, and focused on dev-ops and coding."
+                            }
+                            
+                            messages_for_api = [system_message] + [
+                                {"role": msg["role"], "content": msg["content"]} 
+                                for msg in st.session_state.copilot_history
+                            ]
+                            
+                            # Call Groq API
+                            completion = client.chat.completions.create(
+                                model="llama-3.3-70b-versatile",
+                                messages=messages_for_api,
+                                temperature=0.5,
+                                max_tokens=1024,
+                                top_p=1,
+                            )
+                            
+                            bot_reply = completion.choices[0].message.content
+                            
+                            # Display and save
+                            st.markdown(bot_reply)
+                            st.session_state.copilot_history.append({"role": "assistant", "content": bot_reply})
+                            
+                        except Exception as e:
+                            # 2. Updated error message to accurately reflect Groq
+                            error_message = f"**Connection Error:** Failed to connect to Groq. Please verify your `GROQ_API_KEY` is in `.streamlit/secrets.toml`. *(Error: {str(e)})*"
+                            st.error(error_message)
+                            st.session_state.copilot_history.append({"role": "assistant", "content": error_message})
+                
     # --- RECRUITER DASHBOARD ---
     elif st.session_state.role == "Recruiter":
         st.markdown("<h3>Enterprise Talent Orchestration Dashboard</h3>", unsafe_allow_html=True)
@@ -870,22 +1048,37 @@ else:
                         status_text = "Highly Recommended" if final_score >= 70 else ("Needs Review" if final_score >= 50 else "Not Recommended")
                         
                         st.markdown(f"""
-                            <div style='text-align: center; border: 2px solid {status_color}; border-radius: 12px; padding: 20px; background: rgba(0,0,0, 0.2); margin-top: 20px;'>
-                                <h2 style='margin: 0; color: {status_color};'>{final_score:.1f}% Match</h2>
-                                <p style='color: #cbd5e1;'>{status_text}</p>
-                                <progress value="{final_score}" max="100" style="width: 100%; height: 15px;"></progress>
-                            </div>
-                            
-                            <div style='margin-top: 20px; color: #94a3b8; font-size: 14px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px;'>
-                                <b>Advanced Decision Breakdown:</b><br><br>
-                                🧠 <b>AI Skill Match:</b> {ai_skill_match}/40 pts<br>
-                                🗣️ <b>Human Evaluation:</b> {interview_pts}/30 pts<br>
-                                🌐 <b>Portfolio Presence:</b> {portfolio_pts}/20 pts<br>
-                                🕵️ <b>Authenticity Bonus:</b> {auth_bonus_pts}/10 pts<br>
-                                <br><b>Authenticity Logs:</b><br>
-                                <span style='color:#e2e8f0;'>{'<br>'.join(auth_scan['logs']) if auth_scan['logs'] else '<i>No external links provided for deep scan.</i>'}</span>
+                            <div style='background: linear-gradient(145deg, rgba(15,23,42,0.9) 0%, rgba(2,6,23,1) 100%); border: 1px solid #334155; border-radius: 16px; padding: 30px; margin-top: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);'>
+                                <div style='text-align: center; margin-bottom: 25px;'>
+                                    <p style='color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; margin-bottom: 5px;'>CodeForge Decision Engine</p>
+                                    <h1 style='margin: 0; color: {status_color}; font-size: 3.5rem; font-weight: 800;'>{final_score:.1f}<span style='font-size: 1.5rem; color: #64748b;'>/100</span></h1>
+                                    <div style='display: inline-block; background: {status_color}22; color: {status_color}; padding: 6px 16px; border-radius: 20px; font-weight: 600; margin-top: 10px; border: 1px solid {status_color}55;'>{status_text}</div>
+                                </div>
+                                
+                                <div style='background: rgba(255,255,255,0.03); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.05);'>
+                                    <h4 style='margin: 0 0 15px 0; color: #e2e8f0; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 10px;'>📊 Matrix Breakdown</h4>
+                                    
+                                    <div style='display: flex; justify-content: space-between; margin-bottom: 10px;'>
+                                        <span style='color: #cbd5e1;'>🧠 AI Skill Match</span>
+                                        <span style='color: #38bdf8; font-weight: 600;'>{ai_skill_match} <small style='color: #64748b;'>/ 40</small></span>
+                                    </div>
+                                    <div style='display: flex; justify-content: space-between; margin-bottom: 10px;'>
+                                        <span style='color: #cbd5e1;'>🗣️ Human Evaluation</span>
+                                        <span style='color: #a855f7; font-weight: 600;'>{interview_pts} <small style='color: #64748b;'>/ 30</small></span>
+                                    </div>
+                                    <div style='display: flex; justify-content: space-between; margin-bottom: 10px;'>
+                                        <span style='color: #cbd5e1;'>🌐 Social Portfolio</span>
+                                        <span style='color: #10b981; font-weight: 600;'>{portfolio_pts} <small style='color: #64748b;'>/ 20</small></span>
+                                    </div>
+                                    <div style='display: flex; justify-content: space-between; margin-bottom: 15px;'>
+                                        <span style='color: #cbd5e1;'>🕵️ Veri-Pixel Scan</span>
+                                        <span style='color: #fbbf24; font-weight: 600;'>{auth_bonus_pts} <small style='color: #64748b;'>/ 10</small></span>
+                                    </div>
+                                    
+                                    <div style='background: #020617; padding: 12px; border-radius: 8px; border-left: 3px solid #fbbf24; font-family: monospace; font-size: 0.8rem; color: #94a3b8;'>
+                                        <b style='color: #fbbf24;'>VERI-PIXEL LOGS:</b><br>
+                                        {'<br>'.join(auth_scan['logs']) if auth_scan['logs'] else '<i>No external footprints detected.</i>'}
+                                    </div>
+                                </div>
                             </div>
                         """, unsafe_allow_html=True)
-                else:
-                    st.warning("⚠️ Please upload a candidate resume to run the scoring matrix.")
-            st.markdown("</div>", unsafe_allow_html=True)
