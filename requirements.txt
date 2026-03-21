@@ -4,6 +4,6 @@ networkx
 pandas
 numpy
 supabase
-groq
+Groq
 PyPDF2
 python-dotenv
