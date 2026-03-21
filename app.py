@@ -1047,38 +1047,36 @@ else:
                         status_color = "#10b981" if final_score >= 70 else ("#f59e0b" if final_score >= 50 else "#ef4444")
                         status_text = "Highly Recommended" if final_score >= 70 else ("Needs Review" if final_score >= 50 else "Not Recommended")
                         
-                        st.markdown(f"""
-                            <div style='background: linear-gradient(145deg, rgba(15,23,42,0.9) 0%, rgba(2,6,23,1) 100%); border: 1px solid #334155; border-radius: 16px; padding: 30px; margin-top: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);'>
-                                <div style='text-align: center; margin-bottom: 25px;'>
-                                    <p style='color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; margin-bottom: 5px;'>CodeForge Decision Engine</p>
-                                    <h1 style='margin: 0; color: {status_color}; font-size: 3.5rem; font-weight: 800;'>{final_score:.1f}<span style='font-size: 1.5rem; color: #64748b;'>/100</span></h1>
-                                    <div style='display: inline-block; background: {status_color}22; color: {status_color}; padding: 6px 16px; border-radius: 20px; font-weight: 600; margin-top: 10px; border: 1px solid {status_color}55;'>{status_text}</div>
-                                </div>
-                                
-                                <div style='background: rgba(255,255,255,0.03); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.05);'>
-                                    <h4 style='margin: 0 0 15px 0; color: #e2e8f0; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 10px;'>📊 Matrix Breakdown</h4>
-                                    
-                                    <div style='display: flex; justify-content: space-between; margin-bottom: 10px;'>
-                                        <span style='color: #cbd5e1;'>🧠 AI Skill Match</span>
-                                        <span style='color: #38bdf8; font-weight: 600;'>{ai_skill_match} <small style='color: #64748b;'>/ 40</small></span>
-                                    </div>
-                                    <div style='display: flex; justify-content: space-between; margin-bottom: 10px;'>
-                                        <span style='color: #cbd5e1;'>🗣️ Human Evaluation</span>
-                                        <span style='color: #a855f7; font-weight: 600;'>{interview_pts} <small style='color: #64748b;'>/ 30</small></span>
-                                    </div>
-                                    <div style='display: flex; justify-content: space-between; margin-bottom: 10px;'>
-                                        <span style='color: #cbd5e1;'>🌐 Social Portfolio</span>
-                                        <span style='color: #10b981; font-weight: 600;'>{portfolio_pts} <small style='color: #64748b;'>/ 20</small></span>
-                                    </div>
-                                    <div style='display: flex; justify-content: space-between; margin-bottom: 15px;'>
-                                        <span style='color: #cbd5e1;'>🕵️ Veri-Pixel Scan</span>
-                                        <span style='color: #fbbf24; font-weight: 600;'>{auth_bonus_pts} <small style='color: #64748b;'>/ 10</small></span>
-                                    </div>
-                                    
-                                    <div style='background: #020617; padding: 12px; border-radius: 8px; border-left: 3px solid #fbbf24; font-family: monospace; font-size: 0.8rem; color: #94a3b8;'>
-                                        <b style='color: #fbbf24;'>VERI-PIXEL LOGS:</b><br>
-                                        {'<br>'.join(auth_scan['logs']) if auth_scan['logs'] else '<i>No external footprints detected.</i>'}
-                                    </div>
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
+                        # ⚠️ FLATTENED HTML: Do not add spaces at the start of these lines!
+                        html_scorecard = f"""<div style="background: linear-gradient(145deg, rgba(15,23,42,0.9) 0%, rgba(2,6,23,1) 100%); border: 1px solid #334155; border-radius: 16px; padding: 30px; margin-top: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+<div style="text-align: center; margin-bottom: 25px;">
+<p style="color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; margin-bottom: 5px;">CodeForge Decision Engine</p>
+<h1 style="margin: 0; color: {status_color}; font-size: 3.5rem; font-weight: 800;">{final_score:.1f}<span style="font-size: 1.5rem; color: #64748b;">/100</span></h1>
+<div style="display: inline-block; background: {status_color}22; color: {status_color}; padding: 6px 16px; border-radius: 20px; font-weight: 600; margin-top: 10px; border: 1px solid {status_color}55;">{status_text}</div>
+</div>
+<div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
+<h4 style="margin: 0 0 15px 0; color: #e2e8f0; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 10px;">📊 Matrix Breakdown</h4>
+<div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+<span style="color: #cbd5e1;">🧠 AI Skill Match</span>
+<span style="color: #38bdf8; font-weight: 600;">{ai_skill_match} <small style="color: #64748b;">/ 40</small></span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+<span style="color: #cbd5e1;">🗣️ Human Evaluation</span>
+<span style="color: #a855f7; font-weight: 600;">{interview_pts} <small style="color: #64748b;">/ 30</small></span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+<span style="color: #cbd5e1;">🌐 Social Portfolio</span>
+<span style="color: #10b981; font-weight: 600;">{portfolio_pts} <small style="color: #64748b;">/ 20</small></span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+<span style="color: #cbd5e1;">🕵️ Veri-Pixel Scan</span>
+<span style="color: #fbbf24; font-weight: 600;">{auth_bonus_pts} <small style="color: #64748b;">/ 10</small></span>
+</div>
+<div style="background: #020617; padding: 12px; border-radius: 8px; border-left: 3px solid #fbbf24; font-family: monospace; font-size: 0.8rem; color: #94a3b8;">
+<b style="color: #fbbf24;">VERI-PIXEL LOGS:</b><br>
+{'<br>'.join(auth_scan['logs']) if auth_scan['logs'] else '<i>No external footprints detected.</i>'}
+</div>
+</div>
+</div>"""
+
+                        st.markdown(html_scorecard, unsafe_allow_html=True)
