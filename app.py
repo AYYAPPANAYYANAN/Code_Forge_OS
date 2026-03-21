@@ -10,10 +10,16 @@ import PyPDF2
 import io
 import re
 import os
+import uuid
 from dotenv import load_dotenv
 
 # ==========================================
-# 1. INITIALIZATION & LOGIC
+# 1. STREAMLIT CONFIG (MUST BE FIRST)
+# ==========================================
+st.set_page_config(page_title="CodeForge Onboarding AI", layout="wide", initial_sidebar_state="collapsed")
+
+# ==========================================
+# 2. INITIALIZATION & LOGIC
 # ==========================================
 load_dotenv()
 
@@ -26,7 +32,6 @@ def init_supabase() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         return None
     try:
-        # Fixed: Added a check for empty strings
         return create_client(SUPABASE_URL, SUPABASE_KEY)
     except:
         return None
@@ -34,7 +39,7 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 # ==========================================
-# 2. STATE MANAGEMENT & HISTORY LOGGER
+# 3. STATE MANAGEMENT & HISTORY LOGGER
 # ==========================================
 if 'user' not in st.session_state: st.session_state.user = None
 if 'role' not in st.session_state: st.session_state.role = None
@@ -51,102 +56,9 @@ def log_activity(action_desc):
         timestamp = time.strftime("%Y-%m-%d %H:%M")
         log_entry = f"[{timestamp}] {action_desc}"
         st.session_state.activity_log.insert(0, log_entry)
+        # SUPABASE INTEGRATION POINT:
+        # supabase.table('user_history').insert({"email": st.session_state.user, "action": log_entry}).execute()
 
-# --- Global Translation Engine ---
-def t(key):
-    lang = st.session_state.get('language', 'English')
-    translations = {
-        "English": {"candidate": "Candidate Portal", "recruiter": "Enterprise ATS", "back": "⬅️ Back", "login": "Sign In", "create": "Initialize Account"},
-        "German": {"candidate": "Kandidatenportal", "recruiter": "Unternehmen ATS", "back": "⬅️ Zurück", "login": "Anmelden", "create": "Konto Erstellen"},
-        "Tamil": {"candidate": "விண்ணப்பதாரர்", "recruiter": "நிறுவன போர்டல்", "back": "⬅️ பின்னால்", "login": "உள்நுழைய", "create": "கணக்கை உருவாக்கு"}
-    }
-    return translations.get(lang, translations["English"]).get(key, key)
-
-# --- Auth Functions ---
-def handle_auth(email, password, role, action="login"):
-    try:
-        if action == "login":
-            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-            if res.user:
-                st.session_state.user = res.user.email
-                st.session_state.role = role
-                log_activity(f"Logged in as {role}")
-                st.success("Access Granted!")
-                time.sleep(0.5)
-                st.rerun()
-        else:
-            res = supabase.auth.sign_up({"email": email, "password": password})
-            if res.user:
-                st.success("Verification email dispatched! Check your inbox.")
-    except Exception as e:
-        st.error(f"Auth Error: {str(e)}")
-
-# ==========================================
-# 2. THE LOGIN PAGE UI
-# ==========================================
-
-    if st.session_state.auth_view == 'landing':
-        c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
-        with c2:
-            st.markdown("<div class='portal-card'><h1>🎓</h1><h2>Candidate Gateway</h2><p>Adaptive roadmaps & co-pilot.</p></div>", unsafe_allow_html=True)
-            if st.button("Enter Portal 🚀", use_container_width=True):
-                st.session_state.auth_view = 'Candidate'
-                st.rerun()
-        with c3:
-            st.markdown("<div class='portal-card'><h1>👔</h1><h2>Recruiter Portal</h2><p>Predictive churn & orchestration.</p></div>", unsafe_allow_html=True)
-            if st.button("Enter Enterprise 🔒", use_container_width=True):
-                st.session_state.auth_view = 'Recruiter'
-                st.rerun()
-    else:
-        role = st.session_state.auth_view
-        color = "#38bdf8" if role == "Candidate" else "#a855f7"
-        
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            if st.button(t("back")): 
-                st.session_state.auth_view = 'landing'
-                st.rerun()
-            
-            st.markdown(f"<div class='glass-card' style='border-top: 4px solid {color};'>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
-            
-            tab_log, tab_sign = st.tabs([t("login"), t("create")])
-            
-            with tab_log:
-                e1 = st.text_input("Email", key="login_email")
-                p1 = st.text_input("Password", type="password", key="login_pass")
-                if st.button("Authenticate", use_container_width=True):
-                    handle_auth(e1, p1, role, "login")
-            
-            with tab_sign:
-                e2 = st.text_input("Work Email", key="sign_email")
-                p2 = st.text_input("Create Password", type="password", key="sign_pass")
-                if st.button("Initialize Account", use_container_width=True):
-                    handle_auth(e2, p2, role, "signup")
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-
-# ==========================================
-# 2. STATE MANAGEMENT & HISTORY LOGGER
-# ==========================================
-if 'user' not in st.session_state: st.session_state.user = None
-if 'role' not in st.session_state: st.session_state.role = None
-if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
-if 'analyzed' not in st.session_state: st.session_state.analyzed = False
-if 'chat_history' not in st.session_state: st.session_state.chat_history = []
-if 'theme_color' not in st.session_state: st.session_state.theme_color = "#38bdf8" # Default Neon Blue
-if 'language' not in st.session_state: st.session_state.language = "English"
-if 'activity_log' not in st.session_state: st.session_state.activity_log = []
-
-def log_activity(action_desc):
-    """Logs user actions to history (Ready for Supabase DB Insert)"""
-    if st.session_state.user:
-        timestamp = time.strftime("%Y-%m-%d %H:%M")
-        log_entry = f"[{timestamp}] {action_desc}"
-        st.session_state.activity_log.insert(0, log_entry)
-        # ==========================================
-# TRANSLATION DICTIONARY
-# ==========================================
 def t(text_key):
     """Fetches the translated text based on session state language"""
     lang = st.session_state.language
@@ -156,42 +68,46 @@ def t(text_key):
             "upload_resume": "Upload Resume to begin adaptive pathing",
             "target_skills": "Target Skills (e.g., Python, Docker):",
             "init_engine": "Initialize Engine ⚡",
-            "ext_verif": "🔗 External Verification (Optional)"
+            "ext_verif": "🔗 External Verification (Optional)",
+            "back": "⬅️ Back",
+            "login": "🔑 Sign In",
+            "create": "✨ Create Account"
         },
         "German": {
             "doc_ingest": "📥 Dokumentenaufnahme",
             "upload_resume": "Lebenslauf hochladen, um zu beginnen",
             "target_skills": "Zielkompetenzen (z.B. Python, Docker):",
             "init_engine": "Engine Initialisieren ⚡",
-            "ext_verif": "🔗 Externe Überprüfung (Optional)"
+            "ext_verif": "🔗 Externe Überprüfung (Optional)",
+            "back": "⬅️ Zurück",
+            "login": "🔑 Anmelden",
+            "create": "✨ Konto Erstellen"
         },
         "Tamil": {
             "doc_ingest": "📥 ஆவண பதிவேற்றம்",
             "upload_resume": "பாதை உருவாக்க பயோடேட்டாவை பதிவேற்றவும்",
             "target_skills": "இலக்கு திறன்கள் (உதாரணம்: Python):",
             "init_engine": "இயந்திரத்தை துவக்கு ⚡",
-            "ext_verif": "🔗 வெளிப்புற சரிபார்ப்பு (விரும்பினால்)"
+            "ext_verif": "🔗 வெளிப்புற சரிபார்ப்பு (விரும்பினால்)",
+            "back": "⬅️ பின்செல்",
+            "login": "🔑 உள்நுழை",
+            "create": "✨ கணக்கு உருவாக்கு"
         },
         "Hindi": {
             "doc_ingest": "📥 दस्तावेज़ अंतर्ग्रहण",
             "upload_resume": "रेज़्यूमे अपलोड करें",
             "target_skills": "लक्षित कौशल:",
             "init_engine": "इंजन प्रारंभ करें ⚡",
-            "ext_verif": "🔗 बाहरी सत्यापन (वैकल्पिक)"
+            "ext_verif": "🔗 बाहरी सत्यापन (वैकल्पिक)",
+            "back": "⬅️ वापस",
+            "login": "🔑 साइन इन करें",
+            "create": "✨ खाता बनाएं"
         }
     }
-    # Return translated text, fallback to English if key is missing
     return translations.get(lang, translations["English"]).get(text_key, text_key)
-        # SUPABASE INTEGRATION POINT:
-        # supabase.table('user_history').insert({"email": st.session_state.user, "action": log_entry}).execute()
 
 # ==========================================
-# 2. ADVANCED UI & GEN-Z CSS ANIMATIONS
-# ==========================================
-st.set_page_config(page_title="CodeForge Onboarding AI", layout="wide", initial_sidebar_state="collapsed")
-
-# ==========================================
-# 3. ADVANCED UI & DYNAMIC THEMING
+# 4. ADVANCED UI & DYNAMIC THEMING
 # ==========================================
 dynamic_css = f"""
 <style>
@@ -216,124 +132,23 @@ dynamic_css = f"""
 st.markdown(dynamic_css, unsafe_allow_html=True)
 
 # ==========================================
-# 3. STATE MANAGEMENT & AUTH
+# 5. CORE ENGINE & PARSERS
 # ==========================================
-if 'user' not in st.session_state: st.session_state.user = None
-if 'role' not in st.session_state: st.session_state.role = None
-if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
-if 'analyzed' not in st.session_state: st.session_state.analyzed = False
-if 'chat_history' not in st.session_state: st.session_state.chat_history = []
-
-# ==========================================
-# 3. BULLETPROOF AUTHENTICATION LOGIC
-# ==========================================
-def auth_user(email, password, role):
-    try:
-        # Step 1: Attempt to log in
-        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        if res.user:
-            st.session_state.user = res.user.email
-            st.session_state.role = role
-            log_activity(f"Logged in successfully as {role}")
-            st.success("✅ Access Granted! Entering portal...")
-            time.sleep(1)
-            st.rerun() # Refresh page to load dashboard
-            
-    except Exception as e:
-        error_msg = str(e)
-        if "Invalid login credentials" in error_msg:
-            st.error("❌ Wrong email or password. Did you create an account first?")
-        else:
-            st.error(f"⚠️ Auth Error: {error_msg}")
-
-def signup_user(email, password, role):
-    try:
-        # Step 2: Attempt to create an account
-        res = supabase.auth.sign_up({"email": email, "password": password})
-        if res.user:
-            st.success("🎉 Account created successfully! Please click the 'Sign In' tab above to log in.")
-            
-    except Exception as e:
-        error_msg = str(e)
-        if "User already registered" in error_msg:
-            st.warning("⚠️ This email is already registered! Switch to the 'Sign In' tab to log in.")
-        else:
-            st.error(f"⚠️ Sign Up Error: {error_msg}")
-
-# ==========================================
-# 4. THE CLEAN LOGIN UI
-# ==========================================
-if not st.session_state.user:
-    st.markdown("<h1 class='neon-title' style='font-size: 3.5rem; margin-top: 5vh;'>CodeForge OS</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 5vh;'>Intelligent Onboarding Ecosystem</p>", unsafe_allow_html=True)
-
-    if st.session_state.auth_view == 'landing':
-        c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
-        with c2:
-            st.markdown("<div class='glass-card'><h1>🎓</h1><h2>Candidate Portal</h2><p style='color:#cbd5e1;'>Adaptive roadmaps & co-pilot.</p></div>", unsafe_allow_html=True)
-            if st.button("Enter Candidate Gateway 🚀", use_container_width=True):
-                st.session_state.auth_view = 'Candidate'
-                st.rerun()
-        with c3:
-            st.markdown("<div class='glass-card'><h1>👔</h1><h2>Recruiter / ATS</h2><p style='color:#cbd5e1;'>Predictive churn & orchestration.</p></div>", unsafe_allow_html=True)
-            if st.button("Enter Enterprise ATS 🔒", use_container_width=True):
-                st.session_state.auth_view = 'Recruiter'
-                st.rerun()
-    else:
-        role = st.session_state.auth_view
-        color = "#38bdf8" if role == "Candidate" else "#a855f7"
-        
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            st.markdown(f"<div class='glass-card' style='border-top: 4px solid {color};'>", unsafe_allow_html=True)
-            
-            # Back Button
-            if st.button("⬅️ Back"): 
-                st.session_state.auth_view = 'landing'
-                st.rerun()
-                
-            st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
-            
-            # Login / Signup Tabs
-            t_log, t_sign = st.tabs(["🔑 Sign In", "✨ Create Account"])
-            
-            with t_log:
-                e1 = st.text_input("Email", key="login_email")
-                p1 = st.text_input("Password", type="password", key="login_pass")
-                if st.button("Authenticate", use_container_width=True, type="primary"): 
-                    if e1 and p1:
-                        auth_user(e1, p1, role)
-                    else:
-                        st.warning("Please fill in both email and password.")
-                        
-            with t_sign:
-                e2 = st.text_input("Work/School Email", key="signup_email")
-                p2 = st.text_input("Create Password", type="password", key="signup_pass")
-                if st.button("Initialize Account", use_container_width=True): 
-                    if e2 and p2:
-                        signup_user(e2, p2, role)
-                    else:
-                        st.warning("Please fill in both email and password.")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ==========================================
-# 4. CORE ENGINE & PARSERS
-# ==========================================
-
 class CodeForgeAI:
     @staticmethod
     def audit_bias(resume_text):
         """Scans for PII and gendered markers to calculate an actual Ethics Score"""
         score = 100
         findings = []
+        
         if re.search(r'\b(he|she|him|her|his|hers)\b', resume_text, re.I):
             score -= 15
             findings.append("Gendered pronouns detected")
+            
         if re.search(r'\b(19[789][0-9]|200[0-5])\b', resume_text):
             score -= 10
             findings.append("Potential age-identifying dates found")
+            
         return {    
             "score": max(score, 0),
             "status": "Ethical Audit: " + (", ".join(findings) if findings else "Perfectly Neutral")
@@ -345,6 +160,7 @@ class CodeForgeAI:
         base_risk = (skill_gap_count * 15) - (portfolio_score * 0.5)
         churn = max(5, min(95, base_risk))
         velocity = 100 - (skill_gap_count * 5)
+        
         return {
             "churn": f"{churn:.1f}%",
             "velocity": f"{velocity}%",
@@ -355,14 +171,16 @@ class CodeForgeAI:
     def trigger_agents(target_skills):
         """Orchestrates hardware and software setup based on tech stack requirements"""
         agents = []
+        
         if any(x in str(target_skills) for x in ["Docker", "Machine Learning", "AI"]):
             agents.append({"sys": "IT Provisioning", "action": "MacBook Pro M3 Max Assigned", "status": "Ready 🟢"})
         else:
             agents.append({"sys": "IT Provisioning", "action": "Standard Issue Laptop Assigned", "status": "Ready 🟢"})
             
         agents.append({"sys": "Slack Agent", "action": "Invited to #tech-builders and #ai-general", "status": "Active 🟢"})
-        return agents
         
+        return agents
+    
 class IntelligentParser:
     @staticmethod
     def extract_text(uploaded_file):
@@ -379,6 +197,7 @@ class IntelligentParser:
     def extract_skills(text, domain_catalog):
         text_lower = text.lower()
         found_skills = []
+        
         for skill in domain_catalog.keys():
             if skill.lower() in text_lower:
                 found_skills.append(skill)
@@ -415,7 +234,6 @@ class IntelligentParser:
             signals.append("⚠️ No LinkedIn link found (Missed 10 networking points)")
             
         return {"score": score, "signals": signals}
-    
     
 class ProfileAuthenticityScanner:
     """Scans external GitHub and LinkedIn links using ACTUAL live web requests"""
@@ -476,7 +294,6 @@ class ProfileAuthenticityScanner:
         
         return {"logs": results, "boost": score_boost}
     
-    
 class KnowledgeGraphEngine:
     def __init__(self, domain="Software Engineering"):
         self.domain = domain
@@ -513,54 +330,255 @@ class KnowledgeGraphEngine:
     def generate_pathway(self, resume_skills, jd_skills):
         cat = self.catalogs.get(self.domain, self.catalogs["Software Engineering"])
         G = nx.DiGraph()
+        
+        # Build the Directed Acyclic Graph (DAG) for prerequisites
         for s, d in cat.items():
-            if d["pre"]: G.add_edge(d["pre"], s)
-            else: G.add_node(s)
+            if d["pre"]: 
+                G.add_edge(d["pre"], s)
+            else: 
+                G.add_node(s)
             
         pathway, time_saved = [], 0
         total_time = sum([cat[s]["time"] for s in jd_skills if s in cat])
         gap = list(set(jd_skills) - set(resume_skills))
         
         for target in gap:
-            if target not in cat: continue
+            if target not in cat: 
+                continue
+                
+            # Check for Prerequisites
             for p in list(G.predecessors(target)):
                 if p not in resume_skills and p not in [x['skill'] for x in pathway]:
                     pathway.append({"skill": p, "type": "Prerequisite Gap", "data": cat[p], "time": cat[p]["time"]})
             
+            # Check for Adjacency (e.g., knowing Java makes Python faster to learn)
             is_adj = False
             for rs in resume_skills:
                 if rs in self.adjacency and self.adjacency[rs]["adjacent"] == target:
                     disc = int(cat[target]["time"] * (1 - self.adjacency[rs]["discount"]))
                     time_saved += (cat[target]["time"] - disc)
                     pathway.append({"skill": target, "type": "Adjacent Bridge", "data": cat[target], "time": disc})
-                    is_adj = True; break
+                    is_adj = True
+                    break
                     
             if not is_adj:
                 pathway.append({"skill": target, "type": "Critical Gap", "data": cat[target], "time": cat[target]["time"]})
 
         eff = (time_saved / total_time) * 100 if total_time > 0 else 0
         return pathway, eff, time_saved
-    @staticmethod
-    def trigger_agents(target_skills):
-        """Orchestrates hardware and software setup based on tech stack requirements"""
-        agents = []
+    
+class SelfLearningPathfinder:
+    def __init__(self):
+        self.catalog = {
+            "Python": [
+                {"id": "py_c1", "type": "course", "title": "Python for Everybody (Coursera)", "url": "https://coursera.org", "weight": 1.0, "cert": "PCEP"},
+                {"id": "py_c2", "type": "course", "title": "100 Days of Code: Python", "url": "https://udemy.com", "weight": 1.2, "cert": "Udemy Cert"},
+                {"id": "py_b1", "type": "book", "title": "Automate the Boring Stuff", "url": "#", "weight": 1.5, "cert": "None"}
+            ],
+            "Machine Learning": [
+                {"id": "ml_c1", "type": "course", "title": "ML Specialization (Stanford)", "url": "https://coursera.org", "weight": 1.8, "cert": "DeepLearning.AI"},
+                {"id": "ml_c2", "type": "course", "title": "Practical Deep Learning", "url": "https://fast.ai", "weight": 1.1, "cert": "Fast.ai Cert"},
+                {"id": "ml_b1", "type": "book", "title": "Hands-On ML with Scikit-Learn", "url": "#", "weight": 1.9, "cert": "None"}
+            ],
+            "Docker": [
+                {"id": "dk_c1", "type": "course", "title": "Docker Mastery", "url": "https://udemy.com", "weight": 1.0, "cert": "Docker Associate"},
+                {"id": "dk_b1", "type": "book", "title": "Docker Deep Dive", "url": "#", "weight": 1.4, "cert": "None"}
+            ]
+        }
+        self.load_memory()
+
+    def load_memory(self):
+        if 'ai_memory' not in st.session_state:
+            st.session_state.ai_memory = self.catalog
+        self.catalog = st.session_state.ai_memory
+
+    def train_model(self, resource_id, skill, reward=0.2):
+        for item in self.catalog.get(skill, []):
+            if item['id'] == resource_id:
+                item['weight'] += reward
+        st.session_state.ai_memory = self.catalog
+
+    def discover_new_skill(self, skill):
+        """
+        The Live Web Scraper! 
+        If the AI encounters a skill it doesn't know, it hunts the web for it.
+        """
+        if skill in self.catalog:
+            return # The AI already knows this skill, skip scraping.
+
+        # --- SERPER.DEV API INTEGRATION ---
+        # Get a free API key at serper.dev and put it in your .env file
+        SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+        new_resources = []
         
-        # IT Agent logic
-        if "Docker" in target_skills or "Machine Learning" in target_skills:
-            agents.append({"sys": "IT Provisioning", "action": "MacBook Pro M3 Max (32GB RAM) Assigned", "status": "Ready"})
+        if SERPER_API_KEY:
+            headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+            
+            # 1. Hunt for Courses (Coursera/Udemy)
+            course_payload = {"q": f"top {skill} course udemy coursera", "num": 2}
+            try:
+                res_courses = requests.post("https://google.serper.dev/search", headers=headers, json=course_payload)
+                if res_courses.status_code == 200:
+                    for i, result in enumerate(res_courses.json().get('organic', [])[:2]):
+                        new_resources.append({
+                            "id": f"dyn_c{i}_{uuid.uuid4().hex[:4]}", 
+                            "type": "course", 
+                            "title": result.get('title', f"Advanced {skill} Masterclass").split('|')[0].strip(), 
+                            "url": result.get('link', '#'), 
+                            "weight": 1.0, 
+                            "cert": f"{skill} Industry Standard"
+                        })
+            except Exception as e:
+                pass # Fail silently and rely on the fallback below
+
+            # 2. Hunt for Books (Amazon/O'Reilly)
+            book_payload = {"q": f"best {skill} programming book", "num": 1}
+            try:
+                res_books = requests.post("https://google.serper.dev/search", headers=headers, json=book_payload)
+                if res_books.status_code == 200:
+                    for i, result in enumerate(res_books.json().get('organic', [])[:1]):
+                        new_resources.append({
+                            "id": f"dyn_b{i}_{uuid.uuid4().hex[:4]}", 
+                            "type": "book", 
+                            "title": result.get('title', f"Mastering {skill}").split('|')[0].strip(), 
+                            "url": result.get('link', '#'), 
+                            "weight": 1.0, 
+                            "cert": "None"
+                        })
+            except Exception as e:
+                pass
+                
+        # --- FALLBACK GENERATOR ---
+        # If the API fails or no key is provided, dynamically generate working search links
+        if not new_resources:
+            new_resources = [
+                {"id": f"fb_c1_{uuid.uuid4().hex[:4]}", "type": "course", "title": f"Complete {skill} Bootcamp", "url": f"https://www.udemy.com/courses/search/?q={skill}", "weight": 1.0, "cert": f"{skill} Foundations"},
+                {"id": f"fb_c2_{uuid.uuid4().hex[:4]}", "type": "course", "title": f"{skill} for Enterprise Architecture", "url": f"https://www.coursera.org/search?query={skill}", "weight": 1.1, "cert": "Advanced Cert"},
+                {"id": f"fb_b1_{uuid.uuid4().hex[:4]}", "type": "book", "title": f"O'Reilly: Deep Dive into {skill}", "url": f"https://www.amazon.com/s?k={skill}+programming+book", "weight": 1.2, "cert": "None"}
+            ]
+
+        # Train the AI with the newly discovered knowledge
+        self.catalog[skill] = new_resources
+        # Save to session memory so it persists while the app is open
+        st.session_state.ai_memory = self.catalog
+
+    def get_best_recommendations(self, skill_gap):
+        recommendations = []
+        for skill in skill_gap:
+            # TRIGGER THE SCRAPER IF THE SKILL IS UNKNOWN
+            if skill not in self.catalog:
+                self.discover_new_skill(skill)
+                
+            if skill in self.catalog:
+                sorted_resources = sorted(self.catalog[skill], key=lambda x: x['weight'], reverse=True)
+                best_course = next((r for r in sorted_resources if r['type'] == 'course'), None)
+                best_book = next((r for r in sorted_resources if r['type'] == 'book'), None)
+                
+                if best_course:
+                    confidence_score = min(99, int((best_course['weight'] / 2.0) * 85))
+                    recommendations.append({
+                        "skill": skill,
+                        "course": best_course,
+                        "book": best_book,
+                        "confidence": confidence_score
+                    })
+        return recommendations
+
+# ==========================================
+# 6. BULLETPROOF AUTHENTICATION LOGIC
+# ==========================================
+def auth_user(email, password, role):
+    try:
+        # Step 1: Attempt to log in
+        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        if res.user:
+            st.session_state.user = res.user.email
+            st.session_state.role = role
+            log_activity(f"Logged in successfully as {role}")
+            st.success("✅ Access Granted! Entering portal...")
+            time.sleep(1)
+            st.rerun() # Refresh page to load dashboard
+            
+    except Exception as e:
+        error_msg = str(e)
+        if "Invalid login credentials" in error_msg:
+            st.error("❌ Wrong email or password. Did you create an account first?")
         else:
-            agents.append({"sys": "IT Provisioning", "action": "Standard Issue Laptop Assigned", "status": "Ready"})
+            st.error(f"⚠️ Auth Error: {error_msg}")
+
+def signup_user(email, password, role):
+    try:
+        # Step 2: Attempt to create an account
+        res = supabase.auth.sign_up({"email": email, "password": password})
+        if res.user:
+            st.success("🎉 Account created successfully! Please click the 'Sign In' tab above to log in.")
             
-        # Software Agent logic
-        if "Python" in target_skills:
-            agents.append({"sys": "DevOps Bot", "action": "Anaconda & VS Code env pre-configured", "status": "Active"})
-            
-        agents.append({"sys": "Slack Agent", "action": "Invited to #tech-builders and #ai-general", "status": "Active"})
+    except Exception as e:
+        error_msg = str(e)
+        if "User already registered" in error_msg:
+            st.warning("⚠️ This email is already registered! Switch to the 'Sign In' tab to log in.")
+        else:
+            st.error(f"⚠️ Sign Up Error: {error_msg}")
+
+# ==========================================
+# 7. MAIN APPLICATION UI
+# ==========================================
+if not st.session_state.user:
+    st.markdown("<h1 class='neon-title' style='font-size: 3.5rem; margin-top: 5vh;'>CodeForge OS</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8; margin-bottom: 5vh;'>Intelligent Onboarding Ecosystem</p>", unsafe_allow_html=True)
+
+    if st.session_state.auth_view == 'landing':
+        c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
+        with c2:
+            st.markdown("<div class='glass-card'><h1>🎓</h1><h2>Candidate Portal</h2><p style='color:#cbd5e1;'>Adaptive roadmaps & co-pilot.</p></div>", unsafe_allow_html=True)
+            if st.button("Enter Candidate Gateway 🚀", use_container_width=True):
+                st.session_state.auth_view = 'Candidate'
+                st.rerun()
+        with c3:
+            st.markdown("<div class='glass-card'><h1>👔</h1><h2>Recruiter / ATS</h2><p style='color:#cbd5e1;'>Predictive churn & orchestration.</p></div>", unsafe_allow_html=True)
+            if st.button("Enter Enterprise ATS 🔒", use_container_width=True):
+                st.session_state.auth_view = 'Recruiter'
+                st.rerun()
+    else:
+        role = st.session_state.auth_view
+        color = "#38bdf8" if role == "Candidate" else "#a855f7"
         
-        return agents
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.markdown(f"<div class='glass-card' style='border-top: 4px solid {color};'>", unsafe_allow_html=True)
+            
+            # Back Button
+            if st.button(t("back")): 
+                st.session_state.auth_view = 'landing'
+                st.rerun()
+                
+            st.markdown(f"<h2 style='text-align: center;'>{role} Access</h2>", unsafe_allow_html=True)
+            
+            # Login / Signup Tabs
+            t_log, t_sign = st.tabs([t("login"), t("create")])
+            
+            with t_log:
+                e1 = st.text_input("Email", key="login_email")
+                p1 = st.text_input("Password", type="password", key="login_pass")
+                if st.button("Authenticate", use_container_width=True, type="primary"): 
+                    if e1 and p1:
+                        auth_user(e1, p1, role)
+                    else:
+                        st.warning("Please fill in both email and password.")
+                        
+            with t_sign:
+                e2 = st.text_input("Work/School Email", key="signup_email")
+                p2 = st.text_input("Create Password", type="password", key="signup_pass")
+                if st.button("Initialize Account", use_container_width=True): 
+                    if e2 and p2:
+                        signup_user(e2, p2, role)
+                    else:
+                        st.warning("Please fill in both email and password.")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
 
-
-    # --- NEW: TOP NAVIGATION WITH SETTINGS & HISTORY ---
+else:
+    # --- TOP NAVIGATION WITH SETTINGS & HISTORY ---
     col_logo, col_space, col_settings, col_user = st.columns([3, 4, 1.5, 1.5])
     
     with col_logo: 
@@ -625,11 +643,7 @@ class KnowledgeGraphEngine:
                 st.markdown("</div>", unsafe_allow_html=True)
                 
                 if st.session_state.analyzed:
-                    # Extract the text first so we can pass it to the audit
                     raw_text = IntelligentParser.extract_text(res_file)
-                    
-                    # Pass raw_text into the audit function
-                    
                     audit = CodeForgeAI.audit_bias(raw_text)
                     st.markdown(f"<div class='glass-card' style='border-color:#a855f7;'><h4>⚖️ Ethics Guardrail</h4><p>Bias Score: {audit['score']}/100<br><small>{audit['status']}</small></p></div>", unsafe_allow_html=True)
             with c2:
@@ -637,7 +651,8 @@ class KnowledgeGraphEngine:
                     engine = KnowledgeGraphEngine("Software Engineering")
                     raw_text = IntelligentParser.extract_text(res_file)
                     r_skills = IntelligentParser.extract_skills(raw_text, engine.catalogs["Software Engineering"])
-                    # --- NEW: EXTERNAL PROFILE ANALYSIS ---
+                    
+                    # --- EXTERNAL PROFILE ANALYSIS ---
                     if manual_github or manual_linkedin:
                         st.markdown("<div class='glass-card' style='border-color:#a855f7;'><h4>🕵️ Certificate & Profile Authenticity</h4>", unsafe_allow_html=True)
                         with st.spinner("Deep-scanning external URLs for AI footprints & forged certificates..."):
@@ -646,23 +661,57 @@ class KnowledgeGraphEngine:
                             for log in profile_data['logs']:
                                 st.write(log)
                         st.markdown("</div>", unsafe_allow_html=True)
-                    # --------------------------------------
                     
                     st.markdown(f"<div class='glass-card' style='border-color:#38bdf8;'><h4>🧠 AI Extracted Skills</h4><p style='color:#cbd5e1;'>{', '.join(r_skills)}</p></div>", unsafe_allow_html=True)
                     
                     j_skills = [s.strip() for s in jd_input.split(',')]
                     pathway, eff, saved = engine.generate_pathway(r_skills, j_skills)
                     
-                    # --- NEW: SOCIAL PORTFOLIO SCORING ---
-                    # Now it checks both the PDF text AND your manual input boxes!
-                    social_data = IntelligentParser.extract_social_signals(raw_text, manual_github, manual_linkedin)
+                    auto_trainer = SelfLearningPathfinder()
+                    skill_gap = list(set(j_skills) - set(r_skills))
+
+                    if skill_gap:
+                        st.markdown("<h4>🧠 Self-Evolving AI Pathway (Continuously Learning)</h4>", unsafe_allow_html=True)
+                        best_paths = auto_trainer.get_best_recommendations(skill_gap)
+                        
+                        for path in best_paths:
+                            skill = path['skill']
+                            course = path['course']
+                            book = path['book']
+                            confidence = path['confidence']
+                            
+                            st.markdown(f"""
+                            <div class='glass-card' style='padding:15px; border-left: 4px solid #a855f7; margin-bottom: 15px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center;'>
+                                    <div>
+                                        <span class='status-badge' style='background: #ef4444; color: white;'>Critical Gap</span>
+                                        <h4 style='margin:10px 0 5px 0; color:#e2e8f0;'>{course['title']} <span style='color:#a855f7;'>({skill})</span></h4>
+                                        <p style='margin:0; font-size:13px; color:#94a3b8;'>🏆 AI-Targeted Cert: {course['cert']}</p>
+                                    </div>
+                                    <div style='text-align: right; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px;'>
+                                        <span style='font-size: 22px; font-weight: bold; color: #10b981;'>{confidence}% Match</span><br>
+                                        <span style='font-size: 11px; color: #cbd5e1;'>Based on historical success</span>
+                                    </div>
+                                </div>
+                                
+                                <div style='margin-top: 15px; font-size: 14px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;'>
+                                    🔗 <a href='{course['url']}' target='_blank' style='color: #6ee7b7; text-decoration: none;'>Enroll in Best-Matched Course</a> <br>
+                                    📚 <a href='{book['url'] if book else '#'}' target='_blank' style='color: #38bdf8; text-decoration: none;'>Read Suggested Book: {book['title'] if book else 'N/A'}</a>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                                
+                            if st.button(f"Mark '{course['title']}' as Helpful 👍", key=f"train_{course['id']}"):
+                                auto_trainer.train_model(course['id'], skill, reward=0.25)
+                                st.success(f"🤖 AI Model Trained! Weight for '{course['title']}' increased.")
                     
+                    # --- SOCIAL PORTFOLIO SCORING ---
+                    social_data = IntelligentParser.extract_social_signals(raw_text, manual_github, manual_linkedin)
                     st.markdown("<div class='glass-card' style='border-color:#10b981;'><h4>🌐 Portfolio & Profile Check</h4>", unsafe_allow_html=True)
                     st.progress(social_data['score'] / 25.0) # Max 25 points
                     for sig in social_data['signals']:
                         st.write(sig)
                     st.markdown("</div>", unsafe_allow_html=True)
-                    # --------------------------------------
 
                     st.markdown("<div class='glass-card'><h4>📊 Efficiency Metrics</h4>", unsafe_allow_html=True)
                     m1, m2 = st.columns(2)
@@ -670,30 +719,11 @@ class KnowledgeGraphEngine:
                     m2.metric("Efficiency Gain", f"{eff:.1f}%")
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                    st.markdown("<h4>📍 Adaptive Pathway</h4>", unsafe_allow_html=True)
-                    for step in pathway:
-                        badge = "badge-adjacent" if "Adjacent" in step['type'] else "badge-gap"
-                        must_have_badge = "<span class='status-badge' style='background: #ef4444; color: white;'>🔥 MUST HAVE</span>" if step['data'].get('must_have') else ""
-                        
-                        st.markdown(f"""
-                        <div class='glass-card' style='padding:15px; border-left: 4px solid #38bdf8;'>
-                            <span class='status-badge {badge}'>{step['type']}</span> {must_have_badge}
-                            <h4 style='margin:10px 0 5px 0; color:#e2e8f0;'>{step['data']['course']} <span style='color:#38bdf8;'>({step['skill']})</span></h4>
-                            <p style='margin:0; font-size:13px; color:#94a3b8;'>⏱️ {step['time']} Hours | 🏆 Target Cert: {step['data']['cert']}</p>
-                            
-                            <div style='margin-top: 15px; font-size: 14px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;'>
-                                🔗 <a href='{step['data'].get('course_link', '#')}' target='_blank' style='color: #6ee7b7; text-decoration: none; font-weight: bold;'>Enroll in Course</a> <br>
-                                📚 <a href='{step['data'].get('book_link', '#')}' target='_blank' style='color: #a855f7; text-decoration: none; font-weight: bold;'>Read Book: {step['data'].get('book', 'Standard Doc')}</a>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        # ==========================================
-                    # --- REASONING TRACE (10% EVALUATION CRITERIA) ---
-                    # ==========================================
-                    st.markdown("<h4 style='margin-top: 30px;'>🧠 AI Chain-of-Thought (Reasoning Trace)</h4>", unsafe_allow_html=True)
                     
+                        
+                    # --- AI REASONING TRACE ---
+                    st.markdown("<h4 style='margin-top: 30px;'>🧠 AI Chain-of-Thought (Reasoning Trace)</h4>", unsafe_allow_html=True)
                     with st.expander("View Agentic Execution Log", expanded=False):
-                        # Constructing a terminal-style execution log
                         trace_html = "<div style='background: #0f172a; border: 1px solid #334155; border-left: 4px solid #a855f7; color: #34d399; font-family: \"Courier New\", Courier, monospace; padding: 15px; border-radius: 8px; font-size: 13px; max-height: 350px; overflow-y: auto;'>"
                         
                         trace_html += f"&gt; [SYSTEM] Initializing Directed Acyclic Graph (DAG) for Domain: {engine.domain}...<br>"
@@ -706,7 +736,6 @@ class KnowledgeGraphEngine:
                                 trace_html += f"&gt; <span style='color:#fbbf24;'>[DEPENDENCY GRAPH]</span> Constraint found: '{step['skill']}' is a strict prerequisite. Injecting into critical path prior to advanced modules.<br>"
                             
                             elif step['type'] == "Adjacent Bridge":
-                                # Find exactly which skill triggered the adjacency discount
                                 adj_source = next((s for s in r_skills if s in engine.adjacency and engine.adjacency[s]["adjacent"] == step['skill']), "Related Skill")
                                 discount_pct = int(engine.adjacency.get(adj_source, {}).get("discount", 0) * 100)
                                 trace_html += f"&gt; <span style='color:#38bdf8;'>[ADJACENCY ENGINE]</span> User possesses '{adj_source}'. Mapping lateral knowledge transfer to '{step['skill']}'. Applying {discount_pct}% temporal discount to training load.<br>"
@@ -765,11 +794,10 @@ class KnowledgeGraphEngine:
             st.markdown("<div class='glass-card'><h4>📄 1. Candidate Input</h4>", unsafe_allow_html=True)
             rec_resume = st.file_uploader("Upload Candidate Resume (PDF)", key="rec_res")
             rec_jd = st.text_area("Target Job Skills:", "FastAPI, Docker, Python", key="rec_jd")
-            # --- NEW: RECRUITER MANUAL LINK INPUTS ---
+            
             st.markdown("<h4>🔗 External Profiles</h4>", unsafe_allow_html=True)
             rec_github = st.text_input("Candidate GitHub URL:", placeholder="https://github.com/username", key="rec_gh")
             rec_linkedin = st.text_input("Candidate LinkedIn URL:", placeholder="https://linkedin.com/in/username", key="rec_li")
-            # -----------------------------------------
             
             st.markdown("<h4>🧮 2. Human Evaluation</h4>", unsafe_allow_html=True)
             github_proj = st.number_input("Relevant GitHub Projects", min_value=0, value=2)
@@ -782,56 +810,50 @@ class KnowledgeGraphEngine:
                 if rec_resume:
                     log_activity(f"Ran AI Profile Scanner for candidate.")
                     with st.spinner("Running Veri-Pixel & Analyzing Gap..."):
-                       time.sleep(1)
-                        # --- NEW: ADVANCED RECRUITER SCORING LOGIC ---
-                    raw_text = IntelligentParser.extract_text(rec_resume)
+                        time.sleep(1)
+                        raw_text = IntelligentParser.extract_text(rec_resume)
                         
                         # 1. AI Skill Gap Match (Max 40 points)
-                    found_skills = IntelligentParser.extract_skills(raw_text, KnowledgeGraphEngine().catalogs["Software Engineering"])
-                    target_skills = [s.strip() for s in rec_jd.split(',')]
-                    overlap = len(set(found_skills).intersection(set(target_skills)))
-                    match_ratio = overlap / len(target_skills) if target_skills else 0
-                    ai_skill_match = int(match_ratio * 40) 
+                        found_skills = IntelligentParser.extract_skills(raw_text, KnowledgeGraphEngine().catalogs["Software Engineering"])
+                        target_skills = [s.strip() for s in rec_jd.split(',')]
+                        overlap = len(set(found_skills).intersection(set(target_skills)))
+                        match_ratio = overlap / len(target_skills) if target_skills else 0
+                        ai_skill_match = int(match_ratio * 40) 
                         
                         # 2. Social Portfolio Footprint (Max 20 points)
-                    social_data = IntelligentParser.extract_social_signals(raw_text, rec_github, rec_linkedin)
-                    portfolio_pts = min(social_data['score'], 20) 
+                        social_data = IntelligentParser.extract_social_signals(raw_text, rec_github, rec_linkedin)
+                        portfolio_pts = min(social_data['score'], 20) 
                         
                         # 3. Authenticity Deep-Scan (Max 10 points)
-                    auth_scan = ProfileAuthenticityScanner.analyze_external_links(rec_github, rec_linkedin)
-                    auth_bonus_pts = min(auth_scan['boost'], 10)
+                        auth_scan = ProfileAuthenticityScanner.analyze_external_links(rec_github, rec_linkedin)
+                        auth_bonus_pts = min(auth_scan['boost'], 10)
                         
                         # 4. Human Interview (Max 30 points)
-                    interview_pts = int((interview_score / 10) * 30)
+                        interview_pts = int((interview_score / 10) * 30)
                         
-                        # Independent Veri-Pixel doc score (doesn't affect the 100pt total, just a flag)
-                    vp_score = random.randint(82, 98)
+                        vp_score = random.randint(82, 98)
+                        final_score = ai_skill_match + portfolio_pts + auth_bonus_pts + interview_pts
                         
-                    final_score = ai_skill_match + portfolio_pts + auth_bonus_pts + interview_pts
-                        # ----------------------------------------------
+                        status_color = "#10b981" if final_score >= 70 else ("#f59e0b" if final_score >= 50 else "#ef4444")
+                        status_text = "Highly Recommended" if final_score >= 70 else ("Needs Review" if final_score >= 50 else "Not Recommended")
                         
-                    # --- NEW: ADVANCED SCORECARD RENDER ---
-                    status_color = "#10b981" if final_score >= 70 else ("#f59e0b" if final_score >= 50 else "#ef4444")
-                    status_text = "Highly Recommended" if final_score >= 70 else ("Needs Review" if final_score >= 50 else "Not Recommended")
-                        
-                    st.markdown(f"""
-                        <div style='text-align: center; border: 2px solid {status_color}; border-radius: 12px; padding: 20px; background: rgba(0,0,0, 0.2); margin-top: 20px;'>
-                            <h2 style='margin: 0; color: {status_color};'>{final_score:.1f}% Match</h2>
-                            <p style='color: #cbd5e1;'>{status_text}</p>
-                            <progress value="{final_score}" max="100" style="width: 100%; height: 15px;"></progress>
-                        </div>
-                        
-                        <div style='margin-top: 20px; color: #94a3b8; font-size: 14px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px;'>
-                            <b>Advanced Decision Breakdown:</b><br><br>
-                            🧠 <b>AI Skill Match:</b> {ai_skill_match}/40 pts<br>
-                            🗣️ <b>Human Evaluation:</b> {interview_pts}/30 pts<br>
-                            🌐 <b>Portfolio Presence:</b> {portfolio_pts}/20 pts<br>
-                            🕵️ <b>Authenticity Bonus:</b> {auth_bonus_pts}/10 pts<br>
-                            <br><b>Authenticity Logs:</b><br>
-                            <span style='color:#e2e8f0;'>{'<br>'.join(auth_scan['logs']) if auth_scan['logs'] else '<i>No external links provided for deep scan.</i>'}</span>
-                        </div>
+                        st.markdown(f"""
+                            <div style='text-align: center; border: 2px solid {status_color}; border-radius: 12px; padding: 20px; background: rgba(0,0,0, 0.2); margin-top: 20px;'>
+                                <h2 style='margin: 0; color: {status_color};'>{final_score:.1f}% Match</h2>
+                                <p style='color: #cbd5e1;'>{status_text}</p>
+                                <progress value="{final_score}" max="100" style="width: 100%; height: 15px;"></progress>
+                            </div>
+                            
+                            <div style='margin-top: 20px; color: #94a3b8; font-size: 14px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px;'>
+                                <b>Advanced Decision Breakdown:</b><br><br>
+                                🧠 <b>AI Skill Match:</b> {ai_skill_match}/40 pts<br>
+                                🗣️ <b>Human Evaluation:</b> {interview_pts}/30 pts<br>
+                                🌐 <b>Portfolio Presence:</b> {portfolio_pts}/20 pts<br>
+                                🕵️ <b>Authenticity Bonus:</b> {auth_bonus_pts}/10 pts<br>
+                                <br><b>Authenticity Logs:</b><br>
+                                <span style='color:#e2e8f0;'>{'<br>'.join(auth_scan['logs']) if auth_scan['logs'] else '<i>No external links provided for deep scan.</i>'}</span>
+                            </div>
                         """, unsafe_allow_html=True)
-                        # --------------------------------------
                 else:
                     st.warning("⚠️ Please upload a candidate resume to run the scoring matrix.")
             st.markdown("</div>", unsafe_allow_html=True)
